@@ -5,7 +5,6 @@ export function Navbar({
   onToggleSidebar,
   searchQuery,
   onSearchChange,
-  onNewActivity,
 }) {
   const currentDateStr = new Date().toLocaleDateString("es-CO", {
     weekday: "long",
@@ -29,21 +28,38 @@ export function Navbar({
 
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         {onSearchChange && (
-          <div style={{ position: "relative", minWidth: 220 }}>
-            <Icons.Search
-              size={16}
+          <div
+            className="input-with-icon"
+            style={{ width: 260, position: "relative" }}
+          >
+            <span
+              className="input-icon-left"
               style={{
                 position: "absolute",
-                left: 10,
+                left: 12,
                 top: "50%",
                 transform: "translateY(-50%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 color: "var(--text-muted)",
+                pointerEvents: "none",
+                zIndex: 2,
               }}
-            />
+            >
+              <Icons.Search size={16} />
+            </span>
             <input
               type="text"
               className="form-control"
-              style={{ paddingLeft: 32, height: 36, fontSize: 13 }}
+              style={{
+                paddingLeft: 38,
+                paddingRight: 12,
+                height: 38,
+                fontSize: 13,
+                borderRadius: 8,
+                margin: 0,
+              }}
               placeholder="Buscar actividad..."
               value={searchQuery || ""}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -51,18 +67,14 @@ export function Navbar({
           </div>
         )}
 
-        {onNewActivity && (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={onNewActivity}
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
-          >
-            <Icons.Plus size={16} />
-            <span>Nueva Actividad</span>
-          </button>
-        )}
-
-        <span style={{ fontSize: 12, color: "var(--text-muted)", textTransform: "capitalize" }}>
+        <span
+          style={{
+            fontSize: 12,
+            color: "var(--text-muted)",
+            textTransform: "capitalize",
+            whiteSpace: "nowrap",
+          }}
+        >
           {currentDateStr}
         </span>
         <img

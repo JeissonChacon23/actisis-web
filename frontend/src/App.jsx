@@ -184,7 +184,6 @@ export default function App() {
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             searchQuery={page === "activities" ? searchQuery : null}
             onSearchChange={page === "activities" ? setSearchQuery : null}
-            onNewActivity={page === "activities" || page === "dashboard" ? handleOpenNew : null}
           />
 
           <div className="content">
