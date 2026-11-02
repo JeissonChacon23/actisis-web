@@ -122,14 +122,110 @@ tr:hover td { background: var(--ufps-red-soft); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ─── FORMS ─── */
-.form-group { margin-bottom: 16px; }
-.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-.form-input, .form-select, .form-textarea { width: 100%; padding: 10px 14px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 14px; font-family: var(--font-body); transition: border-color 0.2s; }
-.form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--ufps-red); box-shadow: 0 0 0 3px var(--ufps-red-soft); }
-.form-textarea { min-height: 80px; resize: vertical; }
+.form-group { margin-bottom: 20px; text-align: left; }
+.form-group label, .form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.01em;
+}
+.form-control, .form-input, .form-select, .form-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-body);
+  transition: all 0.2s ease;
+  height: 44px;
+}
+.form-textarea { min-height: 80px; height: auto; resize: vertical; }
 .form-select { cursor: pointer; }
+.form-control:focus, .form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none;
+  background: #FFFFFF;
+  border-color: var(--ufps-red);
+  box-shadow: 0 0 0 3.5px var(--ufps-red-soft);
+}
+.form-control::placeholder, .form-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
+
+/* Input with icon styling */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+.input-with-icon .input-icon-left {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  z-index: 2;
+}
+.input-with-icon .form-control,
+.input-with-icon .form-input {
+  padding-left: 44px;
+  padding-right: 44px;
+}
+.input-with-icon:focus-within .input-icon-left {
+  color: var(--ufps-red);
+}
+.btn-toggle-pass {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+.btn-toggle-pass:hover {
+  color: var(--ufps-red);
+  background: var(--ufps-red-soft);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+}
+.btn-link:hover {
+  color: var(--ufps-red);
+  background: var(--ufps-red-soft);
+}
 
 /* ─── MODAL ─── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.50); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadeIn 0.2s; }
