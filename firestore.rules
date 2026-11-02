@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Funciones auxiliares de autenticación y rol
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        getUserData().rol == 'admin'
+      );
+    }
+
+    function isDocente() {
+      return isAuthenticated() && (
+        getUserData().rol == 'docente' ||
+        getUserData().rol == 'admin'
+      );
+    }
+
+    // Colección de Usuarios
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() || request.auth.uid == userId;
+      allow update: if isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'estado']));
+      allow delete: if isAdmin();
+    }
+
+    // Colección de Actividades (RF003, AC08, AD-CCA-07)
+    match /activities/{activityId} {
+      // Vista pública: cualquier persona puede leer actividades aprobadas y públicas
+      allow read: if (resource.data.publica == true && resource.data.estado == 'aprobada')
+                  || isAuthenticated();
+
+      // Creación:
+      // Si es admin se aprueba de inmediato; si es docente queda en 'pendiente'
+      allow create: if isAuthenticated() && (
+        (isAdmin() && request.resource.data.estado in ['aprobada', 'pendiente']) ||
+        (request.resource.data.docenteId == request.auth.uid && request.resource.data.estado == 'pendiente')
+      );
+
+      // Actualización (Regla AC08):
+      // Si un docente actualiza una actividad, debe pasar obligatoriamente a 'pendiente'
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          resource.data.docenteId == request.auth.uid &&
+          request.resource.data.docenteId == resource.data.docenteId &&
+          request.resource.data.estado == 'pendiente'
+        )
+      );
+
+      // Eliminación: solo admin
+      allow delete: if isAdmin();
+    }
+
+    // Colección de Convenios (RF004)
+    match /agreements/{agreementId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Colección de Conferencistas / Participantes externos (RF005)
+    match /speakers/{speakerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Colección de Auditoría (AuditLogs) - Cumplimiento CNA (RNF006 / RB-19)
+    // Inmutable: solo permite append (create), no update ni delete
+    match /auditlogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+  }
+}
