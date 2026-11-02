@@ -306,23 +306,23 @@ export function UsersModule({ docentes = [], currentUser, onRefresh }) {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Documento de Identidad *</label>
+              <label>Documento de Identidad (solo números) *</label>
               <input
                 type="text"
                 className="form-control"
                 required
                 value={formData.documento}
-                onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, documento: e.target.value.replace(/[^0-9]/g, "") })}
               />
             </div>
             <div className="form-group">
-              <label>Código Institucional *</label>
+              <label>Código Institucional (solo números) *</label>
               <input
                 type="text"
                 className="form-control"
                 required
                 value={formData.codigo}
-                onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, codigo: e.target.value.replace(/[^0-9]/g, "") })}
               />
             </div>
           </div>
@@ -339,12 +339,12 @@ export function UsersModule({ docentes = [], currentUser, onRefresh }) {
               />
             </div>
             <div className="form-group">
-              <label>Teléfono / Contacto</label>
+              <label>Teléfono / Contacto (solo números)</label>
               <input
                 type="text"
                 className="form-control"
                 value={formData.telefono}
-                onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, telefono: e.target.value.replace(/[^0-9+\-\s]/g, "") })}
               />
             </div>
           </div>

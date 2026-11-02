@@ -16,6 +16,7 @@ import { AgreementsModule } from "./components/AgreementsModule";
 import { SpeakersModule } from "./components/SpeakersModule";
 import { ReportsModule } from "./components/ReportsModule";
 import { AuditModule } from "./components/AuditModule";
+import { HelpModule } from "./components/HelpModule";
 import { ProfileModule } from "./components/ProfileModule";
 import { LoginPage } from "./components/LoginPage";
 import { RegisterPage } from "./components/RegisterPage";
@@ -31,6 +32,7 @@ export default function App() {
   const [inviteToken, setInviteToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("dashboard");
+  const [prevPage, setPrevPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -43,6 +45,13 @@ export default function App() {
   // Modal de Actividad
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
+
+  const navigateTo = (targetPage) => {
+    if (targetPage !== page) {
+      setPrevPage(page);
+      setPage(targetPage);
+    }
+  };
 
   // Detectar si la ruta actual corresponde a un enlace de invitación (/registro/:token - RF001.2)
   useEffect(() => {
@@ -147,6 +156,13 @@ export default function App() {
       <>
         <RegisterPage
           token={inviteToken}
+          onRegisterComplete={(u) => {
+            window.history.pushState({}, "", "/");
+            setInviteToken(null);
+            setCurrentUser(u);
+            setView("app");
+            setPage("dashboard");
+          }}
           onBackToLogin={() => {
             window.history.pushState({}, "", "/");
             setInviteToken(null);
@@ -193,6 +209,7 @@ export default function App() {
     reports: "Generación de Reportes y Estadísticas CNA",
     audit: "Bitácora de Auditoría CNA",
     profile: "Mi Perfil Institucional",
+    help: "Centro de Ayuda y Preguntas Frecuentes (FAQs)",
   };
 
   return (
@@ -201,7 +218,7 @@ export default function App() {
       <div className="app">
         <Sidebar
           currentPage={page}
-          onNavigate={(p) => setPage(p)}
+          onNavigate={navigateTo}
           currentUser={currentUser}
           onLogout={handleLogout}
           isOpen={sidebarOpen}
@@ -211,9 +228,12 @@ export default function App() {
         <main className="main">
           <Navbar
             title={pageTitles[page] || "ACTISIS"}
+            currentPage={page}
+            onNavigate={navigateTo}
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-            searchQuery={page === "activities" ? searchQuery : null}
-            onSearchChange={page === "activities" ? setSearchQuery : null}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenHelp={() => navigateTo("help")}
           />
 
           <div className="content">
@@ -224,7 +244,7 @@ export default function App() {
                 agreementCount={agreements.length}
                 speakerCount={speakers.length}
                 user={currentUser}
-                onNavigate={(p) => setPage(p)}
+                onNavigate={navigateTo}
               />
             )}
 
@@ -236,6 +256,7 @@ export default function App() {
                 onNewActivity={handleOpenNew}
                 onEditActivity={handleOpenEdit}
                 searchQuery={searchQuery}
+                onClearSearch={() => setSearchQuery("")}
               />
             )}
 
@@ -277,6 +298,13 @@ export default function App() {
               <ProfileModule
                 currentUser={currentUser}
                 onUserUpdate={(u) => setCurrentUser(u)}
+              />
+            )}
+
+            {page === "help" && (
+              <HelpModule
+                previousPage={pageTitles[prevPage] || "Dashboard General"}
+                onBack={() => setPage(prevPage || "dashboard")}
               />
             )}
           </div>

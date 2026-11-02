@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { logAction } from "./auditService";
-import { sanitizeInput } from "../helpers/validators";
+import { sanitizeInput, validateNumericOnly } from "../helpers/validators";
 
 export async function getSpeakers() {
   try {
@@ -25,6 +25,9 @@ export async function getSpeakers() {
 }
 
 export async function createSpeaker(data, user) {
+  validateNumericOnly(data.identificacion, "Identificación");
+  validateNumericOnly(data.telefono, "Teléfono");
+
   const payload = {
     nombre: sanitizeInput(data.nombre),
     identificacion: sanitizeInput(data.identificacion || ""),
@@ -40,6 +43,9 @@ export async function createSpeaker(data, user) {
 }
 
 export async function updateSpeaker(id, data, user) {
+  validateNumericOnly(data.identificacion, "Identificación");
+  validateNumericOnly(data.telefono, "Teléfono");
+
   const payload = {
     nombre: sanitizeInput(data.nombre),
     identificacion: sanitizeInput(data.identificacion || ""),
@@ -54,10 +60,10 @@ export async function updateSpeaker(id, data, user) {
   return { id, ...payload };
 }
 
-export async function deleteSpeaker(id, user) {
+export async function deleteSpeaker(id, nombre, user) {
   if (user?.rol !== "admin") {
     throw new Error("Solo el administrador puede eliminar participantes externos.");
   }
   await deleteDoc(doc(db, "speakers", id));
-  await logAction("eliminar", "conferencista", id, "Conferencista eliminado", user);
+  await logAction("eliminar", "conferencista", id, `Conferencista eliminado: ${nombre}`, user);
 }

@@ -31,12 +31,19 @@ export function ReportsModule({ activities = [], user }) {
   const approvalRate = totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
   const evidenceRate = totalCount > 0 ? Math.round((withEvidenceCount / totalCount) * 100) : 0;
 
-  // Datos para Gráficos Estadísticos (RF007.6)
+  // Datos para las 3 Gráficas Estadísticas requeridas en N13 y RF007.6:
+  // 1) Por Tipo, 2) Por Semestre, 3) Por Movilidad
   const byType = ACTIVITY_TYPES.map((t) => ({
     label: t,
     count: filtered.filter((a) => a.tipo === t).length,
   })).filter((x) => x.count > 0);
   const maxType = Math.max(...byType.map((x) => x.count), 1);
+
+  const bySemester = SEMESTERS.map((s) => ({
+    label: s,
+    count: filtered.filter((a) => a.semestre === s).length,
+  })).filter((x) => x.count > 0);
+  const maxSem = Math.max(...bySemester.map((x) => x.count), 1);
 
   const byMobility = MOBILITY_TYPES.map((m) => ({
     label: m,
@@ -75,7 +82,7 @@ export function ReportsModule({ activities = [], user }) {
           Generador de Informes Ejecutivos y Estadísticas CNA (RF007)
         </h2>
         <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
-          Filtra por semestre, tipo o rango de fechas, visualiza gráficos e indicadores de cumplimiento y descarga el reporte oficial en PDF.
+          Filtra por semestre, tipo o rango de fechas, visualiza las 3 gráficas e indicadores de cumplimiento y descarga el reporte oficial en PDF.
         </p>
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -171,10 +178,18 @@ export function ReportsModule({ activities = [], user }) {
         </div>
       </div>
 
-      {/* Gráficos Estadísticos de Actividades (RF007.6) */}
-      <div className="charts-grid" style={{ marginBottom: 24 }}>
+      {/* 3 Gráficos Estadísticos de Actividades (RF007.6 y Caso de Prueba N13) */}
+      <div
+        className="charts-grid"
+        style={{
+          marginBottom: 24,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 16,
+        }}
+      >
         <div className="chart-card">
-          <h3>Distribución por Tipo de Actividad (RF007.6)</h3>
+          <h3>1. Por Tipo de Actividad (RF007.6)</h3>
           <div className="bar-chart">
             {byType.length === 0 ? (
               <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Sin datos para graficar</p>
@@ -187,7 +202,7 @@ export function ReportsModule({ activities = [], user }) {
                       className="bar-fill"
                       style={{
                         width: `${(item.count / maxType) * 100}%`,
-                        background: "linear-gradient(90deg, var(--accent), var(--accent-light))",
+                        background: "linear-gradient(90deg, var(--ufps-red), var(--ufps-red-light))",
                       }}
                     >
                       {item.count}
@@ -200,7 +215,33 @@ export function ReportsModule({ activities = [], user }) {
         </div>
 
         <div className="chart-card">
-          <h3>Distribución por Tipo de Movilidad (RF007.6)</h3>
+          <h3>2. Por Semestre Académico (N13)</h3>
+          <div className="bar-chart">
+            {bySemester.length === 0 ? (
+              <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Sin datos para graficar</p>
+            ) : (
+              bySemester.map((item) => (
+                <div className="bar-row" key={item.label}>
+                  <span className="bar-label">{item.label}</span>
+                  <div className="bar-track">
+                    <div
+                      className="bar-fill"
+                      style={{
+                        width: `${(item.count / maxSem) * 100}%`,
+                        background: "linear-gradient(90deg, #16A34A, #4ADE80)",
+                      }}
+                    >
+                      {item.count}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="chart-card">
+          <h3>3. Por Tipo de Movilidad (RF007.6)</h3>
           <div className="bar-chart">
             {byMobility.length === 0 ? (
               <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Sin datos para graficar</p>
@@ -213,7 +254,7 @@ export function ReportsModule({ activities = [], user }) {
                       className="bar-fill"
                       style={{
                         width: `${(item.count / maxMobility) * 100}%`,
-                        background: "linear-gradient(90deg, var(--blue), #60a5fa)",
+                        background: "linear-gradient(90deg, #1D4ED8, #60A5FA)",
                       }}
                     >
                       {item.count}
@@ -230,11 +271,38 @@ export function ReportsModule({ activities = [], user }) {
       <div className="table-container">
         <div className="table-header">
           <h3>Previsualización del Informe en Pantalla ({filtered.length} registros)</h3>
+          {(filterSemester || filterType || filterStatus || fechaDesde || fechaHasta) && (
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => {
+                setFilterSemester("");
+                setFilterType("");
+                setFilterStatus("");
+                setFechaDesde("");
+                setFechaHasta("");
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
         {filtered.length === 0 ? (
           <div className="empty-state">
             <Icons.BarChart size={48} />
             <p>No se encontraron actividades que coincidan con los criterios seleccionados.</p>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                setFilterSemester("");
+                setFilterType("");
+                setFilterStatus("");
+                setFechaDesde("");
+                setFechaHasta("");
+              }}
+            >
+              Limpiar filtros y ver todos los registros
+            </button>
           </div>
         ) : (
           <div className="table-scroll">

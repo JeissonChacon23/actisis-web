@@ -28,8 +28,8 @@ export function validateDateInSemester(dateStr, semester) {
     };
   }
 
-  // Semestre 1: Enero a Junio / Julio (meses 1 a 7)
-  // Semestre 2: Julio a Diciembre / Enero siguiente (meses 7 a 12)
+  // Semestre 1: Enero a Julio (meses 1 a 7)
+  // Semestre 2: Junio a Diciembre (meses 6 a 12)
   if (period === 1 && activityMonth > 7) {
     return {
       valid: false,
@@ -60,13 +60,65 @@ export function isValidDriveUrl(url) {
 }
 
 /**
- * Sanitizador de texto básico para prevenir XSS (SEC6/SEC7)
+ * Detecta patrones de Inyección SQL o XSS malicioso (Corrección SEC6 y SEC7)
+ * @param {string} str
+ * @returns {boolean}
+ */
+export function containsMaliciousPayload(str) {
+  if (!str || typeof str !== "string") return false;
+  const sqlOrXssPattern =
+    /('|\b)(OR|AND)\s+['"]?\d+['"]?\s*=\s*['"]?\d+|;\s*(DROP|DELETE|UPDATE|INSERT)\b|--\s*$|UNION\s+SELECT|<script\b|javascript:|onerror\s*=|onload\s*=/i;
+  return sqlOrXssPattern.test(str.trim());
+}
+
+/**
+ * Valida que un campo de texto no contenga inyecciones SQL o scripts XSS (SEC6 / SEC7)
+ */
+export function validateSafeText(str, fieldName = "campo") {
+  if (!str || typeof str !== "string") return;
+  if (containsMaliciousPayload(str)) {
+    throw new Error(
+      `Entrada bloqueada por seguridad en ${fieldName}: no se permiten expresiones SQL ni scripts ejecutables (SEC6/SEC7).`
+    );
+  }
+}
+
+/**
+ * Valida que un campo numérico (documento, código, teléfono) no contenga caracteres especiales (Corrección CN2)
+ */
+export function validateNumericOnly(str, fieldName = "campo numérico") {
+  if (!str || typeof str !== "string") return;
+  const trimmed = str.trim();
+  if (!trimmed) return;
+  if (!/^[0-9+\-\s]+$/.test(trimmed)) {
+    throw new Error(
+      `El campo ${fieldName} solo permite números (no se admiten letras ni caracteres especiales como !@#$%^&*()).`
+    );
+  }
+}
+
+/**
+ * Filtra en tiempo real caracteres no numéricos para inputs de documento/código/teléfono (CN2)
+ */
+export function filterDigitsOnly(str) {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/[^0-9]/g, "");
+}
+
+/**
+ * Sanitizador de texto básico para prevenir XSS e inyecciones (SEC6/SEC7)
  * @param {string} str 
  * @returns {string}
  */
 export function sanitizeInput(str) {
   if (!str || typeof str !== "string") return str;
+  if (containsMaliciousPayload(str)) {
+    throw new Error(
+      "Se detectaron caracteres o comandos no permitidos por seguridad (SQL/XSS)."
+    );
+  }
   return str
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/[<>]/g, "");
+    .replace(/[<>]/g, "")
+    .trim();
 }

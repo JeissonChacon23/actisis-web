@@ -18,6 +18,7 @@ export function ActivitiesModule({
   onEditActivity,
   onNewActivity,
   searchQuery,
+  onClearSearch,
 }) {
   const [filterType, setFilterType] = useState("");
   const [filterSemester, setFilterSemester] = useState("");
@@ -182,7 +183,27 @@ export function ActivitiesModule({
         {filtered.length === 0 ? (
           <div className="empty-state">
             <Icons.Activity size={48} />
-            <p>No se encontraron actividades con los filtros seleccionados.</p>
+            <p style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>
+              No se encontraron actividades con los criterios actuales.
+            </p>
+            <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14 }}>
+              Prueba con otro término de búsqueda o restablece los filtros activos (USW26).
+            </p>
+            {(filterSemester || filterType || filterStatus || fechaDesde || fechaHasta || searchQuery) && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setFilterSemester("");
+                  setFilterType("");
+                  setFilterStatus("");
+                  setFechaDesde("");
+                  setFechaHasta("");
+                  if (onClearSearch) onClearSearch();
+                }}
+              >
+                Limpiar búsqueda y ver todas las actividades
+              </button>
+            )}
           </div>
         ) : (
           <div className="table-scroll">

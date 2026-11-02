@@ -12,7 +12,7 @@ import {
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import { logAction } from "./auditService";
-import { sanitizeInput } from "../helpers/validators";
+import { sanitizeInput, validateNumericOnly } from "../helpers/validators";
 
 /**
  * Obtiene el listado completo de usuarios/docentes (RF001.3)
@@ -29,12 +29,16 @@ export async function getDocentes() {
 }
 
 /**
- * Actualiza los datos y rol de un docente (RF001.4, RF001.6)
+ * Actualiza los datos y rol de un docente (RF001.4, RF001.6, CN2)
  */
 export async function updateUser(userId, data, adminUser) {
   if (adminUser?.rol !== "admin") {
     throw new Error("Solo el administrador puede editar datos de docentes.");
   }
+  validateNumericOnly(data.documento, "Documento de Identidad");
+  validateNumericOnly(data.codigo, "Código UFPS");
+  validateNumericOnly(data.telefono, "Teléfono");
+
   const payload = {
     nombre: sanitizeInput(data.nombre),
     apellido: sanitizeInput(data.apellido),
@@ -129,9 +133,13 @@ export async function validateInvitationToken(token) {
 }
 
 /**
- * Completa el registro de un docente mediante su enlace único (RF001.2)
+ * Completa el registro de un docente mediante su enlace único (RF001.2, CN2)
  */
 export async function completeInvitationRegistration(token, formData) {
+  validateNumericOnly(formData.documento, "Documento de Identidad");
+  validateNumericOnly(formData.codigo, "Código UFPS");
+  validateNumericOnly(formData.telefono, "Teléfono");
+
   const inv = await validateInvitationToken(token);
   const email = (formData.correo || inv.correo).trim().toLowerCase();
 

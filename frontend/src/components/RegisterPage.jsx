@@ -5,7 +5,8 @@ import {
 } from "../services/userService";
 import { addToast } from "./Toast";
 
-export function RegisterPage({ token, onRegisterComplete, onGoLogin }) {
+export function RegisterPage({ token, onRegisterComplete, onGoLogin, onBackToLogin }) {
+  const handleBack = onGoLogin || onBackToLogin;
   const [validating, setValidating] = useState(true);
   const [tokenError, setTokenError] = useState("");
   const [formData, setFormData] = useState({
@@ -51,7 +52,11 @@ export function RegisterPage({ token, onRegisterComplete, onGoLogin }) {
     try {
       const profile = await completeInvitationRegistration(token, formData);
       addToast("¡Registro completado exitosamente!");
-      onRegisterComplete(profile);
+      if (onRegisterComplete) {
+        onRegisterComplete(profile);
+      } else if (handleBack) {
+        handleBack();
+      }
     } catch (err) {
       setError(err.message || "Error al completar el registro.");
     } finally {
@@ -84,7 +89,7 @@ export function RegisterPage({ token, onRegisterComplete, onGoLogin }) {
               type="button"
               className="btn btn-primary"
               style={{ width: "100%", justifyContent: "center" }}
-              onClick={onGoLogin}
+              onClick={handleBack}
             >
               Ir al Inicio de Sesión
             </button>
@@ -118,23 +123,23 @@ export function RegisterPage({ token, onRegisterComplete, onGoLogin }) {
 
             <div className="form-row">
               <div className="form-group">
-                <label>N° Documento *</label>
+                <label>N° Documento (solo números) *</label>
                 <input
                   type="text"
                   className="form-control"
                   required
                   value={formData.documento}
-                  onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, documento: e.target.value.replace(/[^0-9]/g, "") })}
                 />
               </div>
               <div className="form-group">
-                <label>Código Institucional *</label>
+                <label>Código Institucional (solo números) *</label>
                 <input
                   type="text"
                   className="form-control"
                   required
                   value={formData.codigo}
-                  onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, codigo: e.target.value.replace(/[^0-9]/g, "") })}
                 />
               </div>
             </div>

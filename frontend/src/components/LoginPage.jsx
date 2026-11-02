@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { loginUser, sendResetPassword } from "../services/authService";
+import { containsMaliciousPayload } from "../helpers/validators";
 import { addToast } from "./Toast";
 import * as Icons from "../helpers/Icons";
+
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 60;
 
 export function LoginPage({ onLoginSuccess, onGoPublic }) {
   const [identificador, setIdentificador] = useState("");
@@ -13,16 +17,54 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotMsg, setForgotMsg] = useState("");
 
+  // Protección contra Fuerza Bruta (SEC8)
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
+
+  useEffect(() => {
+    if (lockoutRemaining <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutRemaining((prev) => {
+        if (prev <= 1) {
+          setFailedAttempts(0);
+          setError("");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutRemaining]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (lockoutRemaining > 0) return;
+
     setError("");
+
+    // Protección contra Inyección SQL / XSS en Login (SEC4)
+    if (containsMaliciousPayload(identificador) || containsMaliciousPayload(password)) {
+      setError("Credenciales incorrectas.");
+      return;
+    }
+
     setLoading(true);
     try {
       const user = await loginUser({ identificador, password });
+      setFailedAttempts(0);
       addToast(`¡Bienvenido(a), ${user.nombre || user.email}!`);
       onLoginSuccess(user);
     } catch (err) {
-      setError(err.message || "Credenciales incorrectas.");
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+      if (nextAttempts >= MAX_ATTEMPTS) {
+        setLockoutRemaining(LOCKOUT_SECONDS);
+        setError(
+          `Cuenta bloqueada temporalmente por seguridad tras ${MAX_ATTEMPTS} intentos fallidos (SEC8). Intente nuevamente en ${LOCKOUT_SECONDS} segundos.`
+        );
+      } else {
+        setError(err.message || "Credenciales incorrectas.");
+      }
     } finally {
       setLoading(false);
     }
@@ -36,9 +78,9 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
     }
     try {
       await sendResetPassword(forgotEmail.trim());
-      setForgotMsg("Se ha enviado un enlace de recuperación a tu correo. Revisa tu bandeja de entrada.");
-    } catch (err) {
-      setForgotMsg(err.message || "Error al enviar correo de recuperación.");
+      setForgotMsg("Si el correo está registrado, recibirá un enlace para restablecer su contraseña.");
+    } catch {
+      setForgotMsg("Si el correo está registrado, recibirá un enlace para restablecer su contraseña.");
     }
   };
 
@@ -57,7 +99,13 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
           Programa de Ingeniería de Sistemas · UFPS
         </p>
 
-        {error && <div className="login-error">{error}</div>}
+        {error && (
+          <div className="login-error">
+            {lockoutRemaining > 0
+              ? `Bloqueo temporal de seguridad activo (${lockoutRemaining}s restantes) por múltiples intentos fallidos.`
+              : error}
+          </div>
+        )}
 
         {!showForgot ? (
           <form onSubmit={handleLogin}>
@@ -75,6 +123,7 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
                   value={identificador}
                   onChange={(e) => setIdentificador(e.target.value)}
                   autoComplete="username"
+                  disabled={lockoutRemaining > 0}
                   required
                 />
               </div>
@@ -94,6 +143,7 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  disabled={lockoutRemaining > 0}
                   required
                 />
                 <button
@@ -120,9 +170,13 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
                 marginTop: 8,
                 justifyContent: "center",
               }}
-              disabled={loading}
+              disabled={loading || lockoutRemaining > 0}
             >
-              {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+              {lockoutRemaining > 0
+                ? `Bloqueado (${lockoutRemaining}s)`
+                : loading
+                ? "Iniciando sesión..."
+                : "Iniciar Sesión"}
             </button>
 
             {/* Enlaces de pie de login */}
@@ -159,7 +213,7 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
         ) : (
           <form onSubmit={handleForgot}>
             <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.5 }}>
-              Ingresa tu correo institucional registrado para enviarte un enlace oficial de restablecimiento de contraseña.
+              Ingresa tu correo institucional registrado para enviarte un enlace oficial de cambio de contraseña.
             </p>
             {forgotMsg && (
               <div
@@ -206,7 +260,7 @@ export function LoginPage({ onLoginSuccess, onGoPublic }) {
                 justifyContent: "center",
               }}
             >
-              Enviar Enlace de Recuperación
+              Enviar Enlace de Cambio de Contraseña
             </button>
 
             <button

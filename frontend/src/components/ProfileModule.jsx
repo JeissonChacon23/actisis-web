@@ -2,7 +2,7 @@ import { useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth, db } from "../config/firebase";
-import { sanitizeInput } from "../helpers/validators";
+import { sanitizeInput, validateNumericOnly } from "../helpers/validators";
 import { addToast } from "./Toast";
 import * as Icons from "../helpers/Icons";
 
@@ -24,6 +24,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
     e.preventDefault();
     setSavingProfile(true);
     try {
+      validateNumericOnly(telefono, "Teléfono");
       const updates = {
         nombre: sanitizeInput(nombre),
         apellido: sanitizeInput(apellido),
@@ -48,6 +49,11 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
       setPassError("La nueva contraseña debe tener al menos 6 caracteres.");
       return;
     }
+    // Corrección CN1: Impedir reutilizar la contraseña actual
+    if (newPass === currentPass) {
+      setPassError("La nueva contraseña no puede ser igual a la contraseña actual (CN1).");
+      return;
+    }
     setSavingPass(true);
     try {
       const user = auth.currentUser;
@@ -57,7 +63,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
       addToast("Contraseña actualizada exitosamente.");
       setCurrentPass("");
       setNewPass("");
-    } catch (err) {
+    } catch {
       setPassError("La contraseña actual es incorrecta o hubo un error de autenticación.");
     } finally {
       setSavingPass(false);
@@ -185,12 +191,12 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 14 }}>
-                    <label>Teléfono / WhatsApp</label>
+                    <label>Teléfono / WhatsApp (solo números)</label>
                     <input
                       type="text"
                       className="form-control"
                       value={telefono}
-                      onChange={(e) => setTelefono(e.target.value)}
+                      onChange={(e) => setTelefono(e.target.value.replace(/[^0-9+\-\s]/g, ""))}
                       placeholder="Ej. 3001234567"
                     />
                   </div>
@@ -220,7 +226,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
                 Seguridad de la Cuenta
               </h3>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
-                Para cambiar tu clave institucional, escribe tu contraseña actual y define una nueva que tenga al menos 6 caracteres.
+                Para cambiar tu clave institucional, escribe tu contraseña actual y define una nueva diferente de al menos 6 caracteres.
               </p>
 
               {passError && (
@@ -268,7 +274,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
                       required
                       value={newPass}
                       onChange={(e) => setNewPass(e.target.value)}
-                      placeholder="Nueva contraseña"
+                      placeholder="Nueva contraseña distinta a la actual"
                     />
                     <button
                       type="button"

@@ -39,9 +39,10 @@ export function Sidebar({
         ]
       : []),
     {
-      title: "Cuenta",
+      title: "Cuenta y Soporte",
       items: [
         { id: "profile", label: "Mi Perfil", icon: Icons.User },
+        { id: "help", label: "Ayuda y FAQs", icon: Icons.FileText },
       ],
     },
   ];
