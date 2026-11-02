@@ -6,13 +6,6 @@ export function Navbar({
   searchQuery,
   onSearchChange,
 }) {
-  const currentDateStr = new Date().toLocaleDateString("es-CO", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
   return (
     <header className="header">
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -26,8 +19,8 @@ export function Navbar({
         <h1 className="header-title">{title}</h1>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        {onSearchChange && (
+      {onSearchChange && (
+        <div style={{ display: "flex", alignItems: "center" }}>
           <div
             className="input-with-icon"
             style={{ width: 260, position: "relative" }}
@@ -65,25 +58,8 @@ export function Navbar({
               onChange={(e) => onSearchChange(e.target.value)}
             />
           </div>
-        )}
-
-        <span
-          style={{
-            fontSize: 12,
-            color: "var(--text-muted)",
-            textTransform: "capitalize",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {currentDateStr}
-        </span>
-        <img
-          src="/logoUFPS.png"
-          alt="UFPS"
-          className="ufps-logo"
-          style={{ height: 32, objectFit: "contain" }}
-        />
-      </div>
+        </div>
+      )}
     </header>
   );
 }
