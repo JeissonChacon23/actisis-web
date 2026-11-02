@@ -3,11 +3,14 @@ import { doc, updateDoc } from "firebase/firestore";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import { addToast } from "./Toast";
+import * as Icons from "../helpers/Icons";
 
 export function ProfileModule({ currentUser, onUserUpdate }) {
   const [telefono, setTelefono] = useState(currentUser?.telefono || "");
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
   const [passError, setPassError] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPass, setSavingPass] = useState(false);
@@ -19,7 +22,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
       const userRef = doc(db, "users", currentUser.uid);
       await updateDoc(userRef, { telefono });
       onUserUpdate({ ...currentUser, telefono });
-      addToast("Información de contacto actualizada.");
+      addToast("Información de contacto actualizada exitosamente.");
     } catch (err) {
       addToast(err.message, "error");
     } finally {
@@ -44,68 +47,206 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
       setCurrentPass("");
       setNewPass("");
     } catch (err) {
-      setPassError("Contraseña actual incorrecta o error de autenticación.");
+      setPassError("La contraseña actual es incorrecta o hubo un error de autenticación.");
     } finally {
       setSavingPass(false);
     }
   };
 
+  const initials = `${currentUser?.nombre?.[0] || "U"}${currentUser?.apellido?.[0] || ""}`.toUpperCase();
+
   return (
-    <div className="fade-in" style={{ maxWidth: 800 }}>
-      <div style={{ background: "var(--bg-card)", padding: 24, borderRadius: "var(--radius)", border: "1px solid var(--border)", marginBottom: 20 }}>
-        <h3 style={{ fontSize: 16, marginBottom: 16 }}>Información Institucional</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div className="detail-row"><div className="detail-label">Nombre Completo</div><div className="detail-value">{currentUser?.nombre} {currentUser?.apellido}</div></div>
-          <div className="detail-row"><div className="detail-label">Correo Institucional</div><div className="detail-value">{currentUser?.correo || currentUser?.email}</div></div>
-          <div className="detail-row"><div className="detail-label">Código Docente</div><div className="detail-value">{currentUser?.codigo || "—"}</div></div>
-          <div className="detail-row"><div className="detail-label">Rol del Sistema</div><div className="detail-value"><span className="badge badge-blue">{currentUser?.rol?.toUpperCase()}</span></div></div>
+    <div className="fade-in" style={{ width: "100%" }}>
+      {/* Tarjeta de Perfil Completa (Full Width) */}
+      <div className="profile-card" style={{ width: "100%", boxShadow: "var(--shadow)" }}>
+        {/* Banner Institucional con Avatar */}
+        <div className="profile-banner">
+          <div className="profile-avatar-lg">
+            {initials}
+          </div>
         </div>
 
-        <form onSubmit={handleUpdateProfile} style={{ marginTop: 20, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-          <div className="form-group" style={{ maxWidth: 300 }}>
-            <label>Número de Teléfono / WhatsApp</label>
-            <input
-              type="text"
-              className="form-control"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-              placeholder="3001234567"
-            />
+        {/* Contenido del Perfil */}
+        <div className="profile-content">
+          <div style={{ marginBottom: 28 }}>
+            <h2 style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 700, margin: "0 0 6px", color: "var(--text-primary)" }}>
+              {currentUser?.nombre} {currentUser?.apellido}
+            </h2>
+            <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
+              {currentUser?.rol === "admin" ? "Director de Programa / Administrador" : "Cuerpo Docente"} · Código: {currentUser?.codigo || "—"}
+            </p>
           </div>
-          <button type="submit" className="btn btn-primary btn-sm" disabled={savingProfile}>
-            {savingProfile ? "Guardando..." : "Actualizar Teléfono"}
-          </button>
-        </form>
-      </div>
 
-      <div style={{ background: "var(--bg-card)", padding: 24, borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-        <h3 style={{ fontSize: 16, marginBottom: 16 }}>Seguridad de la Cuenta - Cambio de Contraseña</h3>
-        {passError && <div className="login-error" style={{ marginBottom: 12 }}>{passError}</div>}
-        <form onSubmit={handleChangePassword}>
-          <div className="form-group">
-            <label>Contraseña Actual</label>
-            <input
-              type="password"
-              className="form-control"
-              required
-              value={currentPass}
-              onChange={(e) => setCurrentPass(e.target.value)}
-            />
+          {/* Grid de Dos Columnas que ocupa todo el ancho disponible */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
+              gap: 36,
+              alignItems: "start",
+            }}
+          >
+            {/* Columna Izquierda: Información Institucional y Contacto */}
+            <div
+              style={{
+                background: "var(--bg-input)",
+                padding: 24,
+                borderRadius: "var(--radius)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "var(--text-primary)" }}>
+                Información Institucional
+              </h3>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+                <div className="detail-row">
+                  <div className="detail-label">Nombre</div>
+                  <div className="detail-value" style={{ fontWeight: 600 }}>{currentUser?.nombre} {currentUser?.apellido}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">Documento</div>
+                  <div className="detail-value">{currentUser?.documento || "—"}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">Código</div>
+                  <div className="detail-value">{currentUser?.codigo || "—"}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">Correo</div>
+                  <div className="detail-value">{currentUser?.correo || currentUser?.email}</div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">Rol</div>
+                  <div className="detail-value">
+                    <span className="badge badge-blue">
+                      {currentUser?.rol === "admin" ? "ADMINISTRADOR" : "DOCENTE"}
+                    </span>
+                  </div>
+                </div>
+                <div className="detail-row">
+                  <div className="detail-label">Estado</div>
+                  <div className="detail-value">
+                    <span className={`badge ${currentUser?.estado === "inactivo" ? "badge-red" : "badge-green"}`}>
+                      {(currentUser?.estado || "activo").toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Formulario de actualización de teléfono */}
+              <form onSubmit={handleUpdateProfile} style={{ borderTop: "1px solid var(--border)", paddingTop: 18 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 10px", color: "var(--text-primary)" }}>
+                  Datos de Contacto
+                </h4>
+                <div className="form-group" style={{ marginBottom: 14 }}>
+                  <label>Número de Teléfono / WhatsApp</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                    placeholder="Ej. 3001234567"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ height: 42, padding: "0 20px" }}
+                  disabled={savingProfile}
+                >
+                  {savingProfile ? "Guardando..." : "Actualizar Teléfono"}
+                </button>
+              </form>
+            </div>
+
+            {/* Columna Derecha: Seguridad y Cambio de Contraseña */}
+            <div
+              style={{
+                background: "var(--bg-input)",
+                padding: 24,
+                borderRadius: "var(--radius)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "var(--text-primary)" }}>
+                Seguridad de la Cuenta
+              </h3>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
+                Para cambiar tu clave, escribe tu contraseña actual y define una nueva que tenga al menos 6 caracteres.
+              </p>
+
+              {passError && (
+                <div className="login-error" style={{ marginBottom: 16 }}>
+                  {passError}
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword}>
+                <div className="form-group">
+                  <label>Contraseña Actual</label>
+                  <div className="input-with-icon">
+                    <span className="input-icon-left">
+                      <Icons.Lock size={18} />
+                    </span>
+                    <input
+                      type={showCurrentPass ? "text" : "password"}
+                      className="form-control"
+                      required
+                      value={currentPass}
+                      onChange={(e) => setCurrentPass(e.target.value)}
+                      placeholder="Contraseña actual"
+                    />
+                    <button
+                      type="button"
+                      className="btn-toggle-pass"
+                      onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      tabIndex={-1}
+                      title={showCurrentPass ? "Ocultar" : "Mostrar"}
+                    >
+                      {showCurrentPass ? <Icons.EyeOff size={18} /> : <Icons.Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Nueva Contraseña (mínimo 6 caracteres)</label>
+                  <div className="input-with-icon">
+                    <span className="input-icon-left">
+                      <Icons.Lock size={18} />
+                    </span>
+                    <input
+                      type={showNewPass ? "text" : "password"}
+                      className="form-control"
+                      required
+                      value={newPass}
+                      onChange={(e) => setNewPass(e.target.value)}
+                      placeholder="Nueva contraseña"
+                    />
+                    <button
+                      type="button"
+                      className="btn-toggle-pass"
+                      onClick={() => setShowNewPass(!showNewPass)}
+                      tabIndex={-1}
+                      title={showNewPass ? "Ocultar" : "Mostrar"}
+                    >
+                      {showNewPass ? <Icons.EyeOff size={18} /> : <Icons.Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ height: 42, padding: "0 22px", marginTop: 4 }}
+                  disabled={savingPass}
+                >
+                  {savingPass ? "Actualizando..." : "Cambiar Contraseña"}
+                </button>
+              </form>
+            </div>
           </div>
-          <div className="form-group">
-            <label>Nueva Contraseña (mínimo 6 caracteres)</label>
-            <input
-              type="password"
-              className="form-control"
-              required
-              value={newPass}
-              onChange={(e) => setNewPass(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="btn btn-primary btn-sm" disabled={savingPass}>
-            {savingPass ? "Actualizando..." : "Cambiar Contraseña"}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );
