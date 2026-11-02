@@ -2,11 +2,16 @@ import { useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import { auth, db } from "../config/firebase";
+import { sanitizeInput } from "../helpers/validators";
 import { addToast } from "./Toast";
 import * as Icons from "../helpers/Icons";
 
 export function ProfileModule({ currentUser, onUserUpdate }) {
+  const [nombre, setNombre] = useState(currentUser?.nombre || "");
+  const [apellido, setApellido] = useState(currentUser?.apellido || "");
+  const [tipo, setTipo] = useState(currentUser?.tipo || "Planta");
   const [telefono, setTelefono] = useState(currentUser?.telefono || "");
+
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [showCurrentPass, setShowCurrentPass] = useState(false);
@@ -19,10 +24,16 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
     e.preventDefault();
     setSavingProfile(true);
     try {
+      const updates = {
+        nombre: sanitizeInput(nombre),
+        apellido: sanitizeInput(apellido),
+        tipo: sanitizeInput(tipo),
+        telefono: sanitizeInput(telefono),
+      };
       const userRef = doc(db, "users", currentUser.uid);
-      await updateDoc(userRef, { telefono });
-      onUserUpdate({ ...currentUser, telefono });
-      addToast("Información de contacto actualizada exitosamente.");
+      await updateDoc(userRef, updates);
+      onUserUpdate({ ...currentUser, ...updates });
+      addToast("Información personal, académica y de contacto actualizada (RF006.2 / RF006.3).");
     } catch (err) {
       addToast(err.message, "error");
     } finally {
@@ -53,7 +64,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
     }
   };
 
-  const initials = `${currentUser?.nombre?.[0] || "U"}${currentUser?.apellido?.[0] || ""}`.toUpperCase();
+  const initials = `${nombre?.[0] || currentUser?.nombre?.[0] || "U"}${apellido?.[0] || currentUser?.apellido?.[0] || ""}`.toUpperCase();
 
   return (
     <div className="fade-in" style={{ width: "100%" }}>
@@ -73,7 +84,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
               {currentUser?.nombre} {currentUser?.apellido}
             </h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
-              {currentUser?.rol === "admin" ? "Director de Programa / Administrador" : "Cuerpo Docente"} · Código: {currentUser?.codigo || "—"}
+              {currentUser?.rol === "admin" ? "Director de Programa / Administrador" : `Docente de ${currentUser?.tipo || "Planta"}`} · Código: {currentUser?.codigo || "—"}
             </p>
           </div>
 
@@ -86,7 +97,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
               alignItems: "start",
             }}
           >
-            {/* Columna Izquierda: Información Institucional y Contacto */}
+            {/* Columna Izquierda: Información Institucional, Académica y Contacto (RF006.1 - RF006.3) */}
             <div
               style={{
                 background: "var(--bg-input)",
@@ -96,20 +107,16 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
               }}
             >
               <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 16px", color: "var(--text-primary)" }}>
-                Información Institucional
+                Información Institucional (RF006.1)
               </h3>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
-                <div className="detail-row">
-                  <div className="detail-label">Nombre</div>
-                  <div className="detail-value" style={{ fontWeight: 600 }}>{currentUser?.nombre} {currentUser?.apellido}</div>
-                </div>
                 <div className="detail-row">
                   <div className="detail-label">Documento</div>
                   <div className="detail-value">{currentUser?.documento || "—"}</div>
                 </div>
                 <div className="detail-row">
-                  <div className="detail-label">Código</div>
+                  <div className="detail-label">Código UFPS</div>
                   <div className="detail-value">{currentUser?.codigo || "—"}</div>
                 </div>
                 <div className="detail-row">
@@ -134,28 +141,68 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
                 </div>
               </div>
 
-              {/* Formulario de actualización de teléfono */}
+              {/* Formulario de actualización personal, académica y de contacto (RF006.2 y RF006.3) */}
               <form onSubmit={handleUpdateProfile} style={{ borderTop: "1px solid var(--border)", paddingTop: 18 }}>
-                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 10px", color: "var(--text-primary)" }}>
-                  Datos de Contacto
+                <h4 style={{ fontSize: 14, fontWeight: 600, margin: "0 0 12px", color: "var(--text-primary)" }}>
+                  Actualizar Datos Personales, Académicos y Contacto (RF006.2 / RF006.3)
                 </h4>
-                <div className="form-group" style={{ marginBottom: 14 }}>
-                  <label>Número de Teléfono / WhatsApp</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={telefono}
-                    onChange={(e) => setTelefono(e.target.value)}
-                    placeholder="Ej. 3001234567"
-                  />
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label>Nombres *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      required
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label>Apellidos *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      required
+                      value={apellido}
+                      onChange={(e) => setApellido(e.target.value)}
+                    />
+                  </div>
                 </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div className="form-group" style={{ marginBottom: 14 }}>
+                    <label>Vinculación Académica</label>
+                    <select
+                      className="form-control"
+                      value={tipo}
+                      onChange={(e) => setTipo(e.target.value)}
+                    >
+                      <option value="Planta">Planta</option>
+                      <option value="Cátedra">Cátedra</option>
+                      <option value="Ocasional">Ocasional</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 14 }}>
+                    <label>Teléfono / WhatsApp</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={telefono}
+                      onChange={(e) => setTelefono(e.target.value)}
+                      placeholder="Ej. 3001234567"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   className="btn btn-primary"
                   style={{ height: 42, padding: "0 20px" }}
                   disabled={savingProfile}
                 >
-                  {savingProfile ? "Guardando..." : "Actualizar Teléfono"}
+                  {savingProfile ? "Guardando..." : "Guardar Información de Perfil"}
                 </button>
               </form>
             </div>
@@ -173,7 +220,7 @@ export function ProfileModule({ currentUser, onUserUpdate }) {
                 Seguridad de la Cuenta
               </h3>
               <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 18px", lineHeight: 1.5 }}>
-                Para cambiar tu clave, escribe tu contraseña actual y define una nueva que tenga al menos 6 caracteres.
+                Para cambiar tu clave institucional, escribe tu contraseña actual y define una nueva que tenga al menos 6 caracteres.
               </p>
 
               {passError && (

@@ -18,18 +18,20 @@ service cloud.firestore {
       );
     }
 
-    function isDocente() {
-      return isAuthenticated() && (
-        getUserData().rol == 'docente' ||
-        getUserData().rol == 'admin'
-      );
+    // Colección de Usuarios (RF001, RF002, RF006)
+    // Se permite lectura para resolución de login por documento/código y directorio
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'estado']));
+      allow delete: if isAdmin();
     }
 
-    // Colección de Usuarios
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAdmin() || request.auth.uid == userId;
-      allow update: if isAdmin() || (request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'estado']));
+    // Colección de Invitaciones de Registro Único con expiración 24h (RF001.1, RF001.2)
+    match /invitations/{tokenId} {
+      allow read: if true;
+      allow create: if isAdmin();
+      allow update: if true;
       allow delete: if isAdmin();
     }
 
@@ -69,7 +71,7 @@ service cloud.firestore {
 
     // Colección de Conferencistas / Participantes externos (RF005)
     match /speakers/{speakerId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated();
     }
 
@@ -77,7 +79,7 @@ service cloud.firestore {
     // Inmutable: solo permite append (create), no update ni delete
     match /auditlogs/{logId} {
       allow read: if isAdmin();
-      allow create: if isAuthenticated();
+      allow create: if true;
       allow update, delete: if false;
     }
   }

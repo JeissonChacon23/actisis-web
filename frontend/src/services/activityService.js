@@ -9,7 +9,7 @@ import {
   query,
   where,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { validateDateInSemester, sanitizeInput, isValidDriveUrl } from "../helpers/validators";
@@ -17,18 +17,32 @@ import { logAction } from "./auditService";
 
 const COLLECTION_NAME = "activities";
 
+function sortByDateDesc(list) {
+  return [...list].sort(
+    (a, b) => new Date(b.fechaInicio || 0).getTime() - new Date(a.fechaInicio || 0).getTime()
+  );
+}
+
 /**
  * Obtiene actividades públicas aprobadas para la vista pública (RF008)
  */
 export async function getPublicActivities() {
-  const q = query(
-    collection(db, COLLECTION_NAME),
-    where("publica", "==", true),
-    where("estado", "==", "aprobada"),
-    orderBy("fechaInicio", "desc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  try {
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("publica", "==", true),
+      where("estado", "==", "aprobada")
+    );
+    const snap = await getDocs(q);
+    return sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  } catch {
+    const snap = await getDocs(collection(db, COLLECTION_NAME));
+    return sortByDateDesc(
+      snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.publica === true && a.estado === "aprobada")
+    );
+  }
 }
 
 /**
@@ -36,20 +50,21 @@ export async function getPublicActivities() {
  */
 export async function getActivities(user) {
   const activitiesRef = collection(db, COLLECTION_NAME);
-  let q;
 
   if (user?.rol === "admin") {
-    q = query(activitiesRef, orderBy("fechaInicio", "desc"));
+    try {
+      const q = query(activitiesRef, orderBy("fechaInicio", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    } catch {
+      const snap = await getDocs(activitiesRef);
+      return sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    }
   } else {
-    q = query(
-      activitiesRef,
-      where("docenteId", "==", user.uid),
-      orderBy("fechaInicio", "desc")
-    );
+    const q = query(activitiesRef, where("docenteId", "==", user.uid));
+    const snap = await getDocs(q);
+    return sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
   }
-
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 /**
@@ -62,6 +77,10 @@ export async function createActivity(data, user) {
     throw new Error(validation.error);
   }
 
+  if (data.fechaFin && data.fechaFin < data.fechaInicio) {
+    throw new Error("La fecha de finalización no puede ser anterior a la fecha de inicio.");
+  }
+
   // 2. Validación de enlace de Google Drive (AD-CCA-07_03)
   if (data.driveFolderLink && !isValidDriveUrl(data.driveFolderLink)) {
     throw new Error("El enlace de evidencias debe ser una URL válida de Google Drive.");
@@ -72,28 +91,30 @@ export async function createActivity(data, user) {
   const sanitizedTematica = sanitizeInput(data.tematica);
   const sanitizedDescripcion = sanitizeInput(data.descripcion);
   const sanitizedLugar = sanitizeInput(data.lugar);
+  const sanitizedDescEvidencia = sanitizeInput(data.descripcionEvidencia || "");
 
   const newActivity = {
     nombre: sanitizedNombre,
     fechaInicio: data.fechaInicio,
     fechaFin: data.fechaFin || data.fechaInicio,
-    horario: data.horario || "",
+    horario: sanitizeInput(data.horario || ""),
     tipo: data.tipo,
     semestre: data.semestre,
     tematica: sanitizedTematica || "",
     descripcion: sanitizedDescripcion || "",
     lugar: sanitizedLugar || "",
     conferencistaId: data.conferencistaId || null,
-    conferencistaNombre: data.conferencistaNombre || "",
+    conferencistaNombre: sanitizeInput(data.conferencistaNombre || ""),
     convenioId: data.convenioId || null,
-    convenioNumero: data.convenioNumero || "",
+    convenioNumero: sanitizeInput(data.convenioNumero || ""),
     docenteId: isAdmin ? (data.docenteId || user.uid) : user.uid,
     docenteNombre: isAdmin
       ? (data.docenteNombre || `${user.nombre || ""} ${user.apellido || ""}`.trim())
       : `${user.nombre || ""} ${user.apellido || ""}`.trim(),
-    docenteCodigo: user.codigo || "",
+    docenteCodigo: data.docenteCodigo || user.codigo || "",
     movilidad: data.movilidad || "N/A",
     driveFolderLink: (data.driveFolderLink || "").trim(),
+    descripcionEvidencia: sanitizedDescEvidencia,
     // Regla de aprobación: Admin crea 'aprobada', Docente crea 'pendiente'
     estado: isAdmin ? (data.estado || "aprobada") : "pendiente",
     publica: isAdmin ? (data.publica !== undefined ? data.publica : true) : false,
@@ -144,25 +165,26 @@ export async function updateActivity(id, data, user) {
     throw new Error(validation.error);
   }
 
+  if (data.driveFolderLink && !isValidDriveUrl(data.driveFolderLink)) {
+    throw new Error("El enlace de evidencias debe ser una URL válida de Google Drive.");
+  }
+
   const updatePayload = {
     ...data,
     nombre: sanitizeInput(data.nombre ?? current.nombre),
     tematica: sanitizeInput(data.tematica ?? current.tematica),
     descripcion: sanitizeInput(data.descripcion ?? current.descripcion),
     lugar: sanitizeInput(data.lugar ?? current.lugar),
+    horario: sanitizeInput(data.horario ?? current.horario ?? ""),
     driveFolderLink: (data.driveFolderLink ?? current.driveFolderLink ?? "").trim(),
+    descripcionEvidencia: sanitizeInput(data.descripcionEvidencia ?? current.descripcionEvidencia ?? ""),
     updatedAt: serverTimestamp(),
   };
 
   // Regla de negocio AC08
   if (!isAdmin) {
-    // El docente no puede forzar aprobación ni estado
-    if (current.estado === "aprobada") {
-      updatePayload.estado = "pendiente";
-      updatePayload.publica = false;
-    } else {
-      updatePayload.estado = "pendiente";
-    }
+    updatePayload.estado = "pendiente";
+    updatePayload.publica = false;
   }
 
   await updateDoc(docRef, updatePayload);
@@ -176,6 +198,22 @@ export async function updateActivity(id, data, user) {
   );
 
   return { id, ...current, ...updatePayload };
+}
+
+/**
+ * Elimina las evidencias adjuntas de una actividad (RF003.18 - Solo Admin)
+ */
+export async function removeActivityEvidence(id, adminUser) {
+  if (adminUser?.rol !== "admin") {
+    throw new Error("Solo el director/administrador puede eliminar evidencias de una actividad.");
+  }
+  const docRef = doc(db, COLLECTION_NAME, id);
+  await updateDoc(docRef, {
+    driveFolderLink: "",
+    descripcionEvidencia: "",
+    updatedAt: serverTimestamp(),
+  });
+  await logAction("eliminar_evidencia", "actividad", id, "Evidencias eliminadas de la actividad", adminUser);
 }
 
 /**
@@ -207,7 +245,7 @@ export async function rejectActivity(id, motivo, adminUser) {
   await updateDoc(docRef, {
     estado: "rechazada",
     publica: false,
-    motivoRechazo: motivo || "No cumple con los criterios requeridos.",
+    motivoRechazo: sanitizeInput(motivo || "No cumple con los criterios requeridos."),
     updatedAt: serverTimestamp(),
   });
 

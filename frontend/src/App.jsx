@@ -15,8 +15,10 @@ import { UsersModule } from "./components/UsersModule";
 import { AgreementsModule } from "./components/AgreementsModule";
 import { SpeakersModule } from "./components/SpeakersModule";
 import { ReportsModule } from "./components/ReportsModule";
+import { AuditModule } from "./components/AuditModule";
 import { ProfileModule } from "./components/ProfileModule";
 import { LoginPage } from "./components/LoginPage";
+import { RegisterPage } from "./components/RegisterPage";
 import { PublicView } from "./components/PublicView";
 import { ActivityFormModal } from "./components/ActivityFormModal";
 import { ToastContainer, addToast } from "./components/Toast";
@@ -25,7 +27,8 @@ import { Loading } from "./components/Loading";
 import "./index.css";
 
 export default function App() {
-  const [view, setView] = useState("loading"); // 'loading' | 'login' | 'public' | 'app'
+  const [view, setView] = useState("loading"); // 'loading' | 'login' | 'register' | 'public' | 'app'
+  const [inviteToken, setInviteToken] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -41,15 +44,25 @@ export default function App() {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [editingActivity, setEditingActivity] = useState(null);
 
-  // Escuchar estado de autenticación de Firebase
+  // Detectar si la ruta actual corresponde a un enlace de invitación (/registro/:token - RF001.2)
   useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith("/registro/")) {
+      const tokenPart = path.replace("/registro/", "").trim();
+      if (tokenPart) {
+        setInviteToken(tokenPart);
+        setView("register");
+        return;
+      }
+    }
+
     const unsubscribe = subscribeToAuth((user) => {
       if (user) {
         setCurrentUser(user);
         setView("app");
       } else {
         setCurrentUser(null);
-        setView((prev) => (prev === "public" ? "public" : "login"));
+        setView((prev) => (prev === "public" || prev === "register" ? prev : "login"));
       }
     });
     return () => unsubscribe();
@@ -129,6 +142,22 @@ export default function App() {
     );
   }
 
+  if (view === "register" && inviteToken) {
+    return (
+      <>
+        <RegisterPage
+          token={inviteToken}
+          onBackToLogin={() => {
+            window.history.pushState({}, "", "/");
+            setInviteToken(null);
+            setView("login");
+          }}
+        />
+        <ToastContainer />
+      </>
+    );
+  }
+
   if (view === "public") {
     return (
       <>
@@ -160,8 +189,9 @@ export default function App() {
     calendar: "Calendario de Actividades",
     users: "Directorio de Docentes",
     agreements: "Convenios Institucionales",
-    speakers: "Conferencistas Externos",
-    reports: "Generación de Reportes CNA",
+    speakers: "Conferencistas y Participantes Externos",
+    reports: "Generación de Reportes y Estadísticas CNA",
+    audit: "Bitácora de Auditoría CNA",
     profile: "Mi Perfil Institucional",
   };
 
@@ -239,6 +269,10 @@ export default function App() {
               <ReportsModule activities={activities} user={currentUser} />
             )}
 
+            {page === "audit" && currentUser?.rol === "admin" && (
+              <AuditModule />
+            )}
+
             {page === "profile" && (
               <ProfileModule
                 currentUser={currentUser}
@@ -256,6 +290,8 @@ export default function App() {
         activity={editingActivity}
         user={currentUser}
         docentes={docentes}
+        speakers={speakers}
+        agreements={agreements}
       />
     </>
   );

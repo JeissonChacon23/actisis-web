@@ -3,7 +3,7 @@ import "jspdf-autotable";
 import { formatDate } from "../helpers/formatters";
 
 /**
- * Genera y descarga un informe oficial de actividades en PDF (RF007)
+ * Genera y descarga un informe oficial de actividades en PDF (RF007.1 - RF007.7)
  */
 export function generateActivitiesPDF({ activities, filters, generatedBy }) {
   const doc = new jsPDF({
@@ -32,7 +32,7 @@ export function generateActivitiesPDF({ activities, filters, generatedBy }) {
   doc.setTextColor(...darkGray);
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text("INFORME EJECUTIVO DE ACTIVIDADES ACADÉMICAS Y AUTOEVALUACIÓN", 14, 32);
+  doc.text("INFORME EJECUTIVO DE ACTIVIDADES Y CUMPLIMIENTO (CNA)", 14, 30);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
@@ -43,14 +43,30 @@ export function generateActivitiesPDF({ activities, filters, generatedBy }) {
     hour: "2-digit",
     minute: "2-digit",
   });
-  doc.text(`Fecha de emisión: ${fechaGeneracion}`, 14, 38);
-  doc.text(`Generado por: ${generatedBy || "Dirección de Programa"}`, 14, 43);
+  doc.text(`Fecha de emisión: ${fechaGeneracion}   |   Generado por: ${generatedBy || "Dirección de Programa"}`, 14, 36);
 
   let filtroTexto = "Filtros aplicados: ";
-  if (filters?.semestre) filtroTexto += `Semestre: ${filters.semestre} | `;
-  if (filters?.tipo) filtroTexto += `Tipo: ${filters.tipo} | `;
-  if (filters?.estado) filtroTexto += `Estado: ${filters.estado} | `;
-  doc.text(filtroTexto, 14, 48);
+  filtroTexto += `Semestre: ${filters?.semestre || "Todos"} | `;
+  filtroTexto += `Tipo: ${filters?.tipo || "Todos"} | `;
+  filtroTexto += `Estado: ${filters?.estado || "Todos"}`;
+  if (filters?.fechaDesde || filters?.fechaHasta) {
+    filtroTexto += ` | Rango: ${filters?.fechaDesde || "Inicio"} a ${filters?.fechaHasta || "Fin"}`;
+  }
+  doc.text(filtroTexto, 14, 41);
+
+  // Resumen de Cumplimiento (RF007.7)
+  const total = activities.length;
+  const aprobadas = activities.filter((a) => a.estado === "aprobada").length;
+  const conEvidencia = activities.filter((a) => Boolean(a.driveFolderLink)).length;
+  const pctAprobacion = total > 0 ? Math.round((aprobadas / total) * 100) : 0;
+  const pctEvidencia = total > 0 ? Math.round((conEvidencia / total) * 100) : 0;
+
+  doc.setFont("helvetica", "bold");
+  doc.text(
+    `Indicadores de Cumplimiento (RF007.7): Total: ${total} | Aprobadas: ${aprobadas} (${pctAprobacion}%) | Con Evidencia Documental en Drive: ${conEvidencia} (${pctEvidencia}%)`,
+    14,
+    47
+  );
 
   // Tabla estructurada con autotable
   const tableData = activities.map((a, idx) => [
@@ -61,12 +77,12 @@ export function generateActivitiesPDF({ activities, filters, generatedBy }) {
     formatDate(a.fechaInicio),
     a.docenteNombre || "—",
     (a.estado || "pendiente").toUpperCase(),
-    a.driveFolderLink ? "Disponible en Drive" : "Sin enlace",
+    a.driveFolderLink ? "Con Evidencia (Drive)" : "Pendiente soporte",
   ]);
 
   doc.autoTable({
-    startY: 53,
-    head: [["#", "Actividad", "Tipo", "Sem.", "Fecha", "Docente Resp.", "Estado", "Evidencia"]],
+    startY: 52,
+    head: [["#", "Actividad", "Tipo", "Sem.", "Fecha", "Docente Resp.", "Estado", "Cumplimiento Evidencia"]],
     body: tableData,
     theme: "striped",
     headStyles: {
@@ -94,7 +110,6 @@ export function generateActivitiesPDF({ activities, filters, generatedBy }) {
     },
     margin: { left: 14, right: 14 },
     didDrawPage: (data) => {
-      // Pie de página
       const pageCount = doc.internal.getNumberOfPages();
       doc.setFontSize(8);
       doc.setTextColor(130, 130, 130);

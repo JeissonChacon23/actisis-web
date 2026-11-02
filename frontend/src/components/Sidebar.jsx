@@ -19,20 +19,21 @@ export function Sidebar({
         { id: "calendar", label: "Calendario", icon: Icons.Calendar },
       ],
     },
+    {
+      title: "Vinculación",
+      items: [
+        ...(isAdmin ? [{ id: "users", label: "Docentes", icon: Icons.Users }] : []),
+        { id: "agreements", label: "Convenios", icon: Icons.Handshake },
+        { id: "speakers", label: "Conferencistas", icon: Icons.Mic },
+      ],
+    },
     ...(isAdmin
       ? [
           {
-            title: "Administración",
-            items: [
-              { id: "users", label: "Docentes", icon: Icons.Users },
-              { id: "agreements", label: "Convenios", icon: Icons.Handshake },
-              { id: "speakers", label: "Conferencistas", icon: Icons.Mic },
-            ],
-          },
-          {
-            title: "Informes",
+            title: "Acreditación CNA",
             items: [
               { id: "reports", label: "Reportes PDF", icon: Icons.BarChart },
+              { id: "audit", label: "Auditoría CNA", icon: Icons.FileText },
             ],
           },
         ]

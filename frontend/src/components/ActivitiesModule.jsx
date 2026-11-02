@@ -1,8 +1,13 @@
 import { useState } from "react";
 import * as Icons from "../helpers/Icons";
 import { ACTIVITY_TYPES, SEMESTERS } from "../helpers/constants";
-import { typeBadge, formatDate } from "../helpers/formatters";
-import { approveActivity, rejectActivity, deleteActivity } from "../services/activityService";
+import { typeBadge, formatDate, toInputDate } from "../helpers/formatters";
+import {
+  approveActivity,
+  rejectActivity,
+  deleteActivity,
+  removeActivityEvidence,
+} from "../services/activityService";
 import { addToast } from "./Toast";
 import { Modal } from "./Modal";
 
@@ -17,7 +22,10 @@ export function ActivitiesModule({
   const [filterType, setFilterType] = useState("");
   const [filterSemester, setFilterSemester] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
 
+  const [viewing, setViewing] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
 
@@ -57,31 +65,48 @@ export function ActivitiesModule({
     }
   };
 
+  const handleRemoveEvidence = async (id) => {
+    if (!window.confirm("¿Deseas eliminar el enlace y descripción de evidencia de esta actividad?")) return;
+    try {
+      await removeActivityEvidence(id, user);
+      addToast("Evidencia eliminada de la actividad.");
+      setViewing((prev) => (prev ? { ...prev, driveFolderLink: "", descripcionEvidencia: "" } : null));
+      onRefresh();
+    } catch (err) {
+      addToast(err.message, "error");
+    }
+  };
+
   const filtered = activities.filter((a) => {
     const q = (searchQuery || "").toLowerCase();
     const matchSearch =
       (a.nombre || "").toLowerCase().includes(q) ||
       (a.tematica || "").toLowerCase().includes(q) ||
+      (a.descripcion || "").toLowerCase().includes(q) ||
       (a.docenteNombre || "").toLowerCase().includes(q);
 
     const matchType = !filterType || a.tipo === filterType;
     const matchSemester = !filterSemester || a.semestre === filterSemester;
     const matchStatus = !filterStatus || a.estado === filterStatus;
 
-    return matchSearch && matchType && matchSemester && matchStatus;
+    const fi = toInputDate(a.fechaInicio);
+    const matchDesde = !fechaDesde || fi >= fechaDesde;
+    const matchHasta = !fechaHasta || fi <= fechaHasta;
+
+    return matchSearch && matchType && matchSemester && matchStatus && matchDesde && matchHasta;
   });
 
   return (
     <div className="fade-in">
-      {/* Filtros */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+      {/* Filtros por Semestre, Tipo, Estado y Rango de Fechas (RF003.8 - RF003.11) */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <select
           className="form-control"
-          style={{ width: 170 }}
+          style={{ width: 155, height: 38, padding: "6px 12px" }}
           value={filterSemester}
           onChange={(e) => setFilterSemester(e.target.value)}
         >
-          <option value="">Todos los Semestres</option>
+          <option value="">Semestre: Todos</option>
           {SEMESTERS.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
@@ -89,11 +114,11 @@ export function ActivitiesModule({
 
         <select
           className="form-control"
-          style={{ width: 170 }}
+          style={{ width: 165, height: 38, padding: "6px 12px" }}
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
-          <option value="">Todos los Tipos</option>
+          <option value="">Tipo: Todos</option>
           {ACTIVITY_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
@@ -101,26 +126,47 @@ export function ActivitiesModule({
 
         <select
           className="form-control"
-          style={{ width: 170 }}
+          style={{ width: 155, height: 38, padding: "6px 12px" }}
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
         >
-          <option value="">Todos los Estados</option>
+          <option value="">Estado: Todos</option>
           <option value="aprobada">Aprobadas</option>
           <option value="pendiente">Pendientes</option>
           <option value="rechazada">Rechazadas</option>
         </select>
 
-        {(filterSemester || filterType || filterStatus) && (
+        <input
+          type="date"
+          className="form-control"
+          style={{ width: 145, height: 38, padding: "6px 10px" }}
+          value={fechaDesde}
+          onChange={(e) => setFechaDesde(e.target.value)}
+          title="Fecha desde"
+        />
+
+        <input
+          type="date"
+          className="form-control"
+          style={{ width: 145, height: 38, padding: "6px 10px" }}
+          value={fechaHasta}
+          min={fechaDesde}
+          onChange={(e) => setFechaHasta(e.target.value)}
+          title="Fecha hasta"
+        />
+
+        {(filterSemester || filterType || filterStatus || fechaDesde || fechaHasta) && (
           <button
             className="btn btn-secondary btn-sm"
             onClick={() => {
               setFilterSemester("");
               setFilterType("");
               setFilterStatus("");
+              setFechaDesde("");
+              setFechaHasta("");
             }}
           >
-            Limpiar Filtros
+            Limpiar
           </button>
         )}
 
@@ -189,7 +235,7 @@ export function ActivitiesModule({
                             rel="noreferrer"
                             className="btn btn-sm btn-secondary"
                             style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-                            title="Abrir en Google Drive"
+                            title={a.descripcionEvidencia || "Abrir en Google Drive"}
                           >
                             <span>Drive</span> ↗
                           </a>
@@ -199,6 +245,15 @@ export function ActivitiesModule({
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <div style={{ display: "inline-flex", gap: 6 }}>
+                          {/* Botón Ver Detalle Individual (RF003.6) */}
+                          <button
+                            className="btn btn-sm btn-icon btn-secondary"
+                            title="Ver Detalle Completo"
+                            onClick={() => setViewing(a)}
+                          >
+                            <Icons.Eye size={16} />
+                          </button>
+
                           {/* Botones de Aprobación para Admin */}
                           {isAdmin && a.estado === "pendiente" && (
                             <>
@@ -254,6 +309,92 @@ export function ActivitiesModule({
         )}
       </div>
 
+      {/* Modal de Detalle Individual de Actividad (RF003.6 / RF003.17 / RF003.18) */}
+      <Modal
+        show={!!viewing}
+        onClose={() => setViewing(null)}
+        title="Ficha Detallada de la Actividad"
+        maxWidth="640px"
+        footer={
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+            <div>
+              {isAdmin && viewing?.driveFolderLink && (
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleRemoveEvidence(viewing.id)}
+                  title="Eliminar enlace de evidencia (RF003.18)"
+                >
+                  <Icons.Trash size={14} /> Eliminar Evidencia
+                </button>
+              )}
+            </div>
+            <button type="button" className="btn btn-secondary" onClick={() => setViewing(null)}>
+              Cerrar
+            </button>
+          </div>
+        }
+      >
+        {viewing && (
+          <div>
+            {viewing.estado === "rechazada" && viewing.motivoRechazo && (
+              <div className="login-error" style={{ marginBottom: 14, textAlign: "left" }}>
+                <strong>Motivo de Rechazo:</strong> {viewing.motivoRechazo}
+              </div>
+            )}
+            {[
+              ["Nombre", viewing.nombre],
+              ["Fechas", `${formatDate(viewing.fechaInicio)} – ${formatDate(viewing.fechaFin)}`],
+              ["Horario", viewing.horario || "—"],
+              ["Tipo", <span className={`badge ${typeBadge(viewing.tipo)}`}>{viewing.tipo}</span>],
+              [
+                "Estado",
+                <span
+                  className={`badge ${
+                    viewing.estado === "aprobada"
+                      ? "badge-green"
+                      : viewing.estado === "pendiente"
+                      ? "badge-yellow"
+                      : "badge-red"
+                  }`}
+                >
+                  {(viewing.estado || "aprobada").toUpperCase()}
+                </span>,
+              ],
+              ["Semestre", viewing.semestre],
+              ["Temática", viewing.tematica || "—"],
+              ["Descripción", viewing.descripcion || "—"],
+              ["Lugar", viewing.lugar || "—"],
+              ["Movilidad", viewing.movilidad || "N/A"],
+              ["Conferencista", viewing.conferencistaNombre || "—"],
+              ["Convenio Vinculado", viewing.convenioNumero || "—"],
+              ["Docente Responsable", viewing.docenteNombre || "—"],
+              ["Descripción Evidencia", viewing.descripcionEvidencia || "—"],
+              [
+                "Enlace Evidencia",
+                viewing.driveFolderLink ? (
+                  <a
+                    href={viewing.driveFolderLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "var(--ufps-red)", fontWeight: 600, textDecoration: "underline" }}
+                  >
+                    Abrir Carpeta en Google Drive ↗
+                  </a>
+                ) : (
+                  "Sin evidencia adjunta"
+                ),
+              ],
+            ].map(([label, val]) => (
+              <div key={label} className="detail-row">
+                <div className="detail-label">{label}</div>
+                <div className="detail-value">{val}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
       {/* Modal de Rechazo de Actividad */}
       <Modal
         show={!!rejectingId}
@@ -274,7 +415,7 @@ export function ActivitiesModule({
           Indica el motivo por el cual se rechaza esta actividad para notificar al docente responsable:
         </p>
         <textarea
-          className="form-control"
+          className="form-textarea"
           rows="3"
           placeholder="Ej. Faltan soportes en el enlace de Drive, fecha fuera del periodo académico..."
           value={motivoRechazo}
