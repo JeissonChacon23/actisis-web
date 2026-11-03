@@ -29,14 +29,14 @@ export function Sidebar({
     },
     ...(isAdmin
       ? [
-          {
-            title: "Acreditación CNA",
-            items: [
-              { id: "reports", label: "Reportes PDF", icon: Icons.BarChart },
-              { id: "audit", label: "Auditoría CNA", icon: Icons.FileText },
-            ],
-          },
-        ]
+        {
+          title: "Acreditación CNA",
+          items: [
+            { id: "reports", label: "Reportes PDF", icon: Icons.BarChart },
+            { id: "audit", label: "Auditoría CNA", icon: Icons.FileText },
+          ],
+        },
+      ]
       : []),
     {
       title: "Cuenta y Soporte",

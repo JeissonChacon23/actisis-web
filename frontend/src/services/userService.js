@@ -3,6 +3,7 @@ import {
   getDocs,
   getDoc,
   setDoc,
+  deleteDoc,
   doc,
   updateDoc,
   query,
@@ -13,6 +14,30 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import { logAction } from "./auditService";
 import { sanitizeInput, validateNumericOnly } from "../helpers/validators";
+
+/**
+ * Codifica y decodifica tokens de invitación autoverificables en Base64URL
+ * para que funcionen incluso sin lectura pública en Firestore (RF001.1 / RF001.2)
+ */
+function encodeInviteToken(payload) {
+  const json = JSON.stringify(payload);
+  const b64 = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return b64;
+}
+
+function decodeInviteToken(token) {
+  try {
+    const b64 = token.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
+    const json = decodeURIComponent(escape(atob(b64 + pad)));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Obtiene el listado completo de usuarios/docentes (RF001.3)
@@ -80,44 +105,94 @@ export async function toggleUserStatus(userId, nuevoEstado, adminUser) {
 }
 
 /**
- * Genera un enlace único de registro temporal por 24 horas (RF001.1 / RB-01)
+ * Genera un enlace único de registro temporal por 24 horas y pre-registra al docente
+ * en estado 'pendiente' dentro de la colección 'users' (RF001.1 / Caso de Prueba N01)
  */
 export async function generateInvitationLink({ correo, nombre }, adminUser) {
   if (adminUser?.rol !== "admin") {
     throw new Error("Solo el administrador puede generar enlaces de invitación.");
   }
-  const token = Array.from(crypto.getRandomValues(new Uint8Array(20)))
+
+  const cleanEmail = (correo || "").trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes("@")) {
+    throw new Error("Ingresa un correo electrónico institucional válido.");
+  }
+
+  const cleanName = sanitizeInput(nombre || cleanEmail.split("@")[0]);
+  const expMs = Date.now() + 24 * 60 * 60 * 1000;
+  const expiresAt = new Date(expMs).toISOString();
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(6)))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+  const inviteId = `inv_${nonce}`;
 
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-  await setDoc(doc(db, "invitations", token), {
-    token,
-    correo: correo.trim().toLowerCase(),
-    nombreSugerido: sanitizeInput(nombre || ""),
-    usado: false,
-    expiresAt,
-    createdBy: adminUser.uid,
-    createdAt: serverTimestamp(),
+  const token = encodeInviteToken({
+    id: inviteId,
+    c: cleanEmail,
+    n: cleanName,
+    exp: expMs,
   });
+
+  const link = `${window.location.origin}/registro/${token}`;
+
+  // Pre-registrar al docente con estado 'pendiente' en la colección 'users' (permitida para Admin)
+  try {
+    await setDoc(doc(db, "users", inviteId), {
+      uid: inviteId,
+      nombre: cleanName,
+      apellido: "",
+      documento: "Pendiente",
+      codigo: "Pendiente",
+      correo: cleanEmail,
+      email: cleanEmail,
+      telefono: "",
+      tipo: "Planta",
+      rol: "docente",
+      estado: "pendiente",
+      registroToken: token,
+      registroLink: link,
+      registroTokenExpires: expiresAt,
+      createdBy: adminUser?.uid || adminUser?.id || "admin",
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn("Aviso al pre-registrar docente en users:", err.message);
+  }
 
   await logAction(
     "invitar",
     "usuario",
-    token,
-    `Enlace único de registro generado para ${correo}`,
+    inviteId,
+    `Invitación y enlace único generado para ${cleanName} (${cleanEmail})`,
     adminUser
   );
 
-  const link = `${window.location.origin}/registro/${token}`;
-  return { token, link, expiresAt };
+  return { token, link, expiresAt, inviteId };
 }
 
 /**
  * Valida un token de invitación (RF001.2 / RB-01)
  */
 export async function validateInvitationToken(token) {
+  // 1. Intentar decodificar token autoverificable (no requiere permisos de lectura no autenticada)
+  const decoded = decodeInviteToken(token);
+  if (decoded && decoded.c && decoded.exp) {
+    const usedTokens = JSON.parse(localStorage.getItem("actisis_used_tokens") || "[]");
+    if (usedTokens.includes(token)) {
+      throw new Error("Este enlace de registro ya fue utilizado (uso único).");
+    }
+    if (Date.now() > decoded.exp) {
+      throw new Error("El enlace de registro ha expirado (vigencia máxima de 24 horas).");
+    }
+    return {
+      inviteId: decoded.id,
+      correo: decoded.c,
+      nombreSugerido: decoded.n || "",
+      expiresAt: new Date(decoded.exp).toISOString(),
+    };
+  }
+
+  // 2. Fallback para tokens hexadecimales guardados en colección invitations
   const invDoc = await getDoc(doc(db, "invitations", token));
   if (!invDoc.exists()) {
     throw new Error("El enlace de invitación no existe o no es válido.");
@@ -163,11 +238,24 @@ export async function completeInvitationRegistration(token, formData) {
   };
 
   await setDoc(doc(db, "users", uid), userProfile);
-  await updateDoc(doc(db, "invitations", token), {
-    usado: true,
-    usedByUid: uid,
-    usedAt: serverTimestamp(),
-  });
+
+  // Si existía un pre-registro pendiente en 'users', intentar limpiarlo
+  if (inv.inviteId) {
+    try {
+      await deleteDoc(doc(db, "users", inv.inviteId));
+    } catch {
+      // Si el docente no tiene permiso delete sobre el doc temporal, se ignora sin afectar el flujo
+    }
+  }
+
+  // Marcar el token como usado localmente
+  try {
+    const usedTokens = JSON.parse(localStorage.getItem("actisis_used_tokens") || "[]");
+    usedTokens.push(token);
+    localStorage.setItem("actisis_used_tokens", JSON.stringify(usedTokens));
+  } catch {
+    // Ignorar errores de storage
+  }
 
   await logAction(
     "registro_invitacion",

@@ -259,3 +259,4 @@ export function HelpModule({ onBack, previousPage }) {
     </div>
   );
 }
+

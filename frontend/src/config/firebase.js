@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 // Configuración de Firebase para el proyecto 'actisis-ufps'
@@ -17,9 +17,18 @@ const firebaseConfig = {
 // Inicializar la aplicación de Firebase evitando instancias duplicadas
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Servicios de Firebase
+// Servicios de Firebase (experimentalForceLongPolling evita errores HTTP 400 de WebChannel en Safari/macOS)
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  });
+} catch {
+  firestoreInstance = getFirestore(app);
+}
+export const db = firestoreInstance;
 
 // Inicialización condicional de Analytics en navegador
 export let analytics = null;

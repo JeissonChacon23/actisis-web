@@ -54,7 +54,8 @@ export function UsersModule({ docentes = [], currentUser, onRefresh }) {
       setGeneratedLink(res.link);
       setInviteEmail("");
       setInviteName("");
-      addToast("Enlace único de registro generado (válido por 24 horas).");
+      addToast("Docente invitado con estado 'pendiente' y enlace único generado (24h).");
+      if (onRefresh) onRefresh();
     } catch (err) {
       addToast(err.message, "error");
     } finally {
@@ -166,16 +167,26 @@ export function UsersModule({ docentes = [], currentUser, onRefresh }) {
               <strong style={{ color: "var(--success)" }}>Enlace único generado (expira en 24h):</strong>{" "}
               <code style={{ wordBreak: "break-all" }}>{generatedLink}</code>
             </div>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={() => {
-                navigator.clipboard.writeText(generatedLink);
-                addToast("Enlace copiado al portapapeles.");
-              }}
-            >
-              Copiar Enlace
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedLink);
+                  addToast("Enlace copiado al portapapeles.");
+                }}
+              >
+                Copiar Enlace
+              </button>
+              <a
+                href={generatedLink}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-sm btn-secondary"
+              >
+                Abrir Formulario ↗
+              </a>
+            </div>
           </div>
         )}
       </div>
@@ -233,12 +244,32 @@ export function UsersModule({ docentes = [], currentUser, onRefresh }) {
                       </span>
                     </td>
                     <td>
-                      <span className={`badge ${d.estado === "inactivo" ? "badge-red" : "badge-green"}`}>
+                      <span
+                        className={`badge ${
+                          d.estado === "inactivo"
+                            ? "badge-red"
+                            : d.estado === "pendiente"
+                            ? "badge-yellow"
+                            : "badge-green"
+                        }`}
+                      >
                         {(d.estado || "activo").toUpperCase()}
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>
                       <div style={{ display: "inline-flex", gap: 6 }}>
+                        {d.registroLink && d.estado === "pendiente" && (
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            title="Copiar enlace único de registro"
+                            onClick={() => {
+                              navigator.clipboard.writeText(d.registroLink);
+                              addToast("Enlace de registro copiado al portapapeles.");
+                            }}
+                          >
+                            Copiar Enlace
+                          </button>
+                        )}
                         <button
                           className="btn btn-sm btn-icon btn-secondary"
                           title="Editar información y rol del docente (RF001.4 / RF001.6)"
