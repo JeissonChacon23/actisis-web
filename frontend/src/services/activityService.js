@@ -61,9 +61,18 @@ export async function getActivities(user) {
       return sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     }
   } else {
-    const q = query(activitiesRef, where("docenteId", "==", user.uid));
-    const snap = await getDocs(q);
-    return sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    try {
+      const q = query(activitiesRef, where("docenteId", "==", user.uid));
+      const snap = await getDocs(q);
+      return sortByDateDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } catch {
+      const snap = await getDocs(activitiesRef);
+      return sortByDateDesc(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((a) => a.docenteId === user.uid)
+      );
+    }
   }
 }
 
