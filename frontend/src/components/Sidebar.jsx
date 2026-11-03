@@ -53,10 +53,6 @@ export function Sidebar({
         {/* Brand Header */}
         <div className="sidebar-brand">
           <img src="/logo.png" alt="ACTISIS" className="brand-logo" />
-          <div className="brand-text">
-            <h2>ACTISIS</h2>
-            <span>Ing. Sistemas · UFPS</span>
-          </div>
         </div>
 
         {/* Navigation Links */}
