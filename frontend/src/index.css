@@ -63,8 +63,8 @@ body, html, #root {
 
 /* ─── SIDEBAR ─── */
 .sidebar { width: var(--sidebar-w); background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
-.sidebar-brand { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: center; }
-.sidebar-brand img.brand-logo { height: 78px; max-width: 210px; width: auto; object-fit: contain; display: block; }
+.sidebar-brand { height: var(--header-h); padding: 0 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.sidebar-brand img.brand-logo { height: 60px; max-width: 220px; width: auto; object-fit: contain; transform: scale(1.25); display: block; }
 .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
 .nav-section { margin-bottom: 20px; }
 .nav-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); padding: 0 12px; margin-bottom: 8px; font-weight: 600; }
